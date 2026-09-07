@@ -15,6 +15,7 @@ RUN curl -fsSL "https://github.com/ShengranHu/ADAS/archive/${ADAS_COMMIT}.tar.gz
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY beans /opt/adas/_beans
+RUN python -m py_compile /opt/adas/_beans/app.py /opt/adas/_beans/main.py
 
 WORKDIR /opt/adas/_beans
 ENV PYTHONUNBUFFERED=1
