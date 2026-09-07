@@ -8,7 +8,7 @@ RUN apt-get update \
 
 WORKDIR /opt/adas
 
-# Fetch a pinned source archive directly. No git clone and no moving upstream main.
+# Fetch the pinned upstream ADAS source archive directly. No git clone.
 RUN curl -fsSL "https://github.com/ShengranHu/ADAS/archive/${ADAS_COMMIT}.tar.gz" \
     | tar -xz --strip-components=1
 
@@ -19,8 +19,6 @@ COPY beans /opt/adas/_beans
 WORKDIR /opt/adas/_beans
 ENV PYTHONUNBUFFERED=1
 ENV RESULTS_DIR=/work/results
-ENV META_MODEL=gpt-5.6-terra
-ENV EVAL_MODEL=gpt-5.6-luna
-ENV JUDGE_MODEL=gpt-5.6-luna
 
-CMD ["python", "run.py"]
+EXPOSE 8765
+CMD ["python", "main.py"]
