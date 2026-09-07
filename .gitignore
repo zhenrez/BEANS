@@ -1,0 +1,7 @@
+results/
+*.env
+.env
+.beans.env
+__pycache__/
+*.pyc
+.DS_Store
