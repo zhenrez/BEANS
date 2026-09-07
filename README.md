@@ -8,7 +8,7 @@ This repository is the runnable BEANS seed-evolution experiment.
 
 BEANS uses ADAS Meta Agent Search to generate, mutate, reflect on, evaluate, and archive BEANS seed candidates. The experiment optimizes the seed itself—not another surrounding platform.
 
-## One-click local run (Windows)
+## One click and go
 
 **Prerequisite:** Docker Desktop.
 
@@ -18,17 +18,26 @@ Double-click:
 RUN_BEANS.cmd
 ```
 
-If no API key is already present, the launcher asks for one in a hidden prompt. The key is passed only to the running container, is not written to the repository or an env file, and the PowerShell process clears its local variable after Docker exits.
+The launcher:
 
-Results appear in `results/`.
+1. builds the pinned ADAS + BEANS image;
+2. starts the local BEANS UI;
+3. opens `http://127.0.0.1:8765` automatically.
 
-## One-click GitHub run
+In the page:
 
-If the repository has an Actions secret named `OPENAI_API_KEY`:
+1. paste a one-time OpenAI API key;
+2. optionally change generations/models;
+3. click **Start**.
 
-**Actions → Run BEANS → Run workflow**
+The key is not written to a file or repository. It is held only by the running container process for the experiment and removed from the process environment when the run exits.
 
-The workflow runs the same container and uploads `results/` as a workflow artifact.
+The UI shows live phase/status messages and, when complete, displays the **full report** directly in the page with links to download:
+
+- `BEANS_FULL_REPORT.md`;
+- the raw ADAS candidate archive.
+
+All raw trajectory/judge evidence is retained under local `results/`.
 
 ## Experimental loop
 
@@ -84,19 +93,37 @@ Held-back evaluation:
 
 These are starter synthetic tests, not a claim of complete qualification.
 
+## Full report
+
+At the end of a run BEANS writes `results/BEANS_FULL_REPORT.md`, containing:
+
+- experiment result summary;
+- complete candidate archive table;
+- search and held-back fitness;
+- per-candidate scenario evidence;
+- hard-failure status;
+- multidimensional grader scores;
+- evaluator notes;
+- latest evolved BEANS seed;
+- interpretation/qualification cautions;
+- pointers to raw evidence.
+
 ## Deliberately excluded
 
-No PostgreSQL. No Neo4j. No FastAPI. No Celery. No React/UI. No .NET. No second agent framework. No separate simulation server.
+No PostgreSQL. No Neo4j. No FastAPI. No Celery. No React/UI framework. No .NET. No second agent framework. No separate simulation server.
+
+The web interface is served with the Python standard library from the same BEANS process.
 
 OR-Tools is not installed until a concrete scenario needs a deterministic constraint/feasibility oracle.
 
-## Files
+## Repository shape
 
 ```text
 RUN_BEANS.cmd          double-click launcher
-run_beans.ps1          disposable-key local runner
+run_beans.ps1          builds/runs Docker and opens browser
 Dockerfile             pinned ADAS runtime
-beans/                  BEANS ADAS adapter + seed + scenarios
-.github/workflows/      optional GitHub one-click run
-results/                generated experiment output
+beans/app.py            BEANS ADAS adapter + UI + evaluator + report
+beans/main.py           safe HTTP entrypoint
+.github/workflows/ci.yml Docker-build verification
+results/                generated locally; gitignored
 ```
