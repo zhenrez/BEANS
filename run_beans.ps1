@@ -21,48 +21,40 @@ try {
 $results = Join-Path $PSScriptRoot 'results'
 New-Item -ItemType Directory -Force -Path $results | Out-Null
 
-$apiKey = $env:OPENAI_API_KEY
-if ([string]::IsNullOrWhiteSpace($apiKey)) {
-    Write-Host 'Paste the one-time OpenAI API key. It will not be saved to disk.'
-    $secure = Read-Host 'OPENAI_API_KEY' -AsSecureString
-    $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+Write-Host 'Building pinned ADAS + BEANS UI...'
+docker build -t beans-adas .
+if ($LASTEXITCODE -ne 0) { throw 'Docker build failed.' }
+
+# Replace only our own previous local BEANS container.
+docker rm -f beans-adas-ui *> $null
+
+Write-Host 'Starting BEANS UI...'
+docker run -d --rm `
+    --name beans-adas-ui `
+    -p 127.0.0.1:8765:8765 `
+    -v "${results}:/work/results" `
+    beans-adas | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'BEANS container failed to start.' }
+
+$ready = $false
+for ($i = 0; $i -lt 30; $i++) {
     try {
-        $apiKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
-    } finally {
-        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
-        $secure.Dispose()
-    }
+        $r = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:8765/api/status' -TimeoutSec 1
+        if ($r.StatusCode -eq 200) { $ready = $true; break }
+    } catch {}
+    Start-Sleep -Milliseconds 500
 }
 
-$metaModel  = if ($env:META_MODEL)  { $env:META_MODEL }  else { 'gpt-5.6-terra' }
-$evalModel  = if ($env:EVAL_MODEL)  { $env:EVAL_MODEL }  else { 'gpt-5.6-luna' }
-$judgeModel = if ($env:JUDGE_MODEL) { $env:JUDGE_MODEL } else { 'gpt-5.6-luna' }
-$generations = if ($env:ADAS_GENERATIONS) { $env:ADAS_GENERATIONS } else { '5' }
-
-try {
-    Write-Host 'Building pinned ADAS + BEANS image...'
-    docker build -t beans-adas .
-    if ($LASTEXITCODE -ne 0) { throw 'Docker build failed.' }
-
-    Write-Host "Running BEANS Meta Agent Search ($generations generations)..."
-    docker run --rm `
-        -e "OPENAI_API_KEY=$apiKey" `
-        -e "META_MODEL=$metaModel" `
-        -e "EVAL_MODEL=$evalModel" `
-        -e "JUDGE_MODEL=$judgeModel" `
-        -e "ADAS_GENERATIONS=$generations" `
-        -v "${results}:/work/results" `
-        beans-adas
-
-    if ($LASTEXITCODE -ne 0) { throw "BEANS run failed with exit code $LASTEXITCODE." }
-
-    Write-Host ''
-    Write-Host 'BEANS run complete.' -ForegroundColor Green
-    Write-Host "Results: $results"
-} finally {
-    # Dispose of the transient plaintext copy in this process as soon as Docker exits.
-    $apiKey = $null
-    Remove-Item Env:OPENAI_API_KEY -ErrorAction SilentlyContinue
-    [GC]::Collect()
-    [GC]::WaitForPendingFinalizers()
+if (-not $ready) {
+    Write-Host 'BEANS UI did not become ready. Container log:' -ForegroundColor Red
+    docker logs beans-adas-ui
+    exit 1
 }
+
+Start-Process 'http://127.0.0.1:8765'
+Write-Host ''
+Write-Host 'BEANS is open at http://127.0.0.1:8765' -ForegroundColor Green
+Write-Host 'Paste the one-time API key in the page and click Start.'
+Write-Host 'The key is kept only in the running container process and removed after the experiment.'
+Write-Host ''
+Write-Host 'You can close this window; Docker keeps the UI running.'
